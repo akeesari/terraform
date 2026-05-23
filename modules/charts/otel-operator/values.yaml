@@ -1,0 +1,18 @@
+# OpenTelemetry Operator Helm values
+# Default configuration for operator deployment
+
+manager:
+  collectorImage:
+    repository: "otel/opentelemetry-collector-k8s"
+  
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+admissionWebhooks:
+  certManager:
+    enabled: true

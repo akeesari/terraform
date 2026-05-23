@@ -1,0 +1,106 @@
+# =============================================================================
+# Loki Helm Values — Single-Binary (Monolithic) Mode
+# Optimized for single-node AKS (B2s) with minimal resource usage.
+# Receives logs from Promtail via HTTP push on :3100.
+# =============================================================================
+
+# Run Loki in single-binary mode (all components in one process)
+# This is the most resource-efficient mode for small clusters.
+deploymentMode: SingleBinary
+
+singleBinary:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+  # Mount loki-rules ConfigMap into the rules directory for the ruler component
+  extraVolumes:
+    - name: loki-rules
+      configMap:
+        name: loki-rules
+  extraVolumeMounts:
+    - name: loki-rules
+      mountPath: /var/loki/rules/fake
+
+# Disable components not needed in single-binary mode
+read:
+  replicas: 0
+write:
+  replicas: 0
+backend:
+  replicas: 0
+
+# Gateway (nginx) not needed in single-binary mode
+gateway:
+  enabled: false
+
+# Disable chunksCache, resultsCache, and other caches (use embedded)
+chunksCache:
+  enabled: false
+resultsCache:
+  enabled: false
+
+# Use filesystem storage (no object storage needed)
+loki:
+  auth_enabled: false
+  commonConfig:
+    replication_factor: 1
+  schemaConfig:
+    configs:
+      - from: "2024-01-01"
+        store: tsdb
+        object_store: filesystem
+        schema: v13
+        index:
+          prefix: index_
+          period: 24h
+  storage:
+    type: filesystem
+    filesystem:
+      chunks_directory: /var/loki/chunks
+      rules_directory: /var/loki/rules
+  limits_config:
+    # Retention — keep 7 days of logs (enough for debugging, minimal storage)
+    retention_period: 168h
+    max_query_series: 500
+    max_query_lookback: 168h
+  compactor:
+    retention_enabled: true
+    delete_request_store: filesystem
+  # Ruler config — passed through loki.rulerConfig so the chart generates ruler: section
+  rulerConfig:
+    alertmanager_url: http://kube-prometheus-stack-alertmanager.monitoring.svc.cluster.local:9093
+    enable_alertmanager_v2: true
+    storage:
+      type: local
+      local:
+        directory: /var/loki/rules
+    rule_path: /var/loki/rules-temp
+    ring:
+      kvstore:
+        store: inmemory
+
+# Enable the ruler component (generates ruler: section in Loki config)
+ruler:
+  enabled: true
+
+# Persistence — small PVC for log chunks
+minio:
+  enabled: false
+
+# Test pod not needed
+test:
+  enabled: false
+
+# Monitoring — disable built-in self-monitoring to save resources
+monitoring:
+  selfMonitoring:
+    enabled: false
+    grafanaAgent:
+      installOperator: false
+  lokiCanary:
+    enabled: false

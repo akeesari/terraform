@@ -1,0 +1,27 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ${release_name}-server
+  namespace: ${namespace}
+  annotations:
+    cert-manager.io/cluster-issuer: "${cluster_issuer_name}"
+    nginx.ingress.kubernetes.io/ssl-passthrough: "false"
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+spec:
+  ingressClassName: ${ingress_class_name}
+  tls:
+    - hosts:
+        - ${hostname}
+      secretName: ${release_name}-tls
+  rules:
+    - host: ${hostname}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: ${release_name}-server
+                port:
+                  number: 80

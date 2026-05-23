@@ -1,0 +1,81 @@
+# OpenTelemetry Collector Helm values
+# Receives traces/metrics/logs from instrumented workloads and exports to Azure Monitor
+
+mode: deployment
+
+replicaCount: 1
+
+image:
+  repository: otel/opentelemetry-collector-contrib
+  pullPolicy: IfNotPresent
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 200m
+    memory: 256Mi
+
+config:
+  receivers:
+    otlp:
+      protocols:
+        http:
+          endpoint: 0.0.0.0:4318
+        grpc:
+          endpoint: 0.0.0.0:4317
+    jaeger:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:14250
+        thrift_http:
+          endpoint: 0.0.0.0:14268
+    zipkin:
+      endpoint: 0.0.0.0:9411
+    prometheus:
+      config:
+        scrape_configs:
+          - job_name: 'otel-collector'
+            scrape_interval: 10s
+            static_configs:
+              - targets: ['localhost:8888']
+
+  processors:
+    batch:
+      timeout: 10s
+      send_batch_size: 1024
+    memory_limiter:
+      check_interval: 1s
+      limit_mib: 400
+
+  exporters:
+    azuremonitor:
+      connection_string: "${appi_connection_string}"
+    debug:
+      verbosity: basic
+    otlp:
+      endpoint: jaeger-collector.observability.svc.cluster.local:4317
+      tls:
+        insecure: true
+
+  extensions:
+    zpages:
+      endpoint: 0.0.0.0:55679
+    health_check:
+      endpoint: 0.0.0.0:13133
+
+  service:
+    extensions: [zpages, health_check]
+    pipelines:
+      traces:
+        receivers: [otlp, jaeger, zipkin]
+        processors: [memory_limiter, batch]
+        exporters: [azuremonitor, otlp]
+      metrics:
+        receivers: [prometheus]
+        processors: [batch]
+        exporters: [debug]
+
+service:
+  type: ClusterIP

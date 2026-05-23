@@ -1,0 +1,60 @@
+# Simplified pgAdmin values for helm.runix.net/pgadmin4 chart
+# No SSO - basic admin login only
+
+replicaCount: 1
+
+image:
+  registry: docker.io
+  repository: dpage/pgadmin4
+  tag: "8.14"
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 80
+
+serviceAccount:
+  create: false
+  automountServiceAccountToken: false
+
+# Server definitions - pre-configured PostgreSQL connection
+serverDefinitions:
+  enabled: true
+  resourceType: ConfigMap
+
+# Ingress disabled - handled by separate kubectl_manifest
+ingress:
+  enabled: false
+
+# Network policy
+networkPolicy:
+  enabled: false
+
+# No extra secret mounts needed (no SSO config)
+extraSecretMounts: []
+
+# Admin credentials set via helm set values
+env:
+  email: admin@example.com
+  password: ""  # Set via terraform set_sensitive
+
+# Persistence
+persistentVolume:
+  enabled: true
+  size: 1Gi
+
+# Resources
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# Security context
+securityContext:
+  runAsUser: 5050
+  runAsGroup: 5050
+  fsGroup: 5050

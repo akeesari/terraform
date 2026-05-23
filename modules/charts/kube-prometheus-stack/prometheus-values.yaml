@@ -1,0 +1,117 @@
+# =============================================================================
+# kube-prometheus-stack Helm Values
+# =============================================================================
+
+# --- CRDs: disabled — managed separately by the prometheus_crds module ---
+# Prevents double-installation and Terraform state drift on CRD resources.
+prometheusOperator:
+  createCustomResource: false
+
+# --- Global label selector used by ServiceMonitor / PodMonitor / Probe resources ---
+prometheus:
+  prometheusSpec:
+    retention: ${retention}
+    serviceMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorSelector: {}
+    serviceMonitorNamespaceSelector: {}
+    podMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelector: {}
+    podMonitorNamespaceSelector: {}
+    ruleSelector: {}
+    ruleSelectorNilUsesHelmValues: false
+    ruleNamespaceSelector: {}
+    # Probe CRD selector — picks up Probe resources in any namespace
+    probeSelectorNilUsesHelmValues: false
+    probeSelector: {}
+    probeNamespaceSelector: {}
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: ${storage_size}
+
+# --- Alertmanager with SMTP email ---
+alertmanager:
+  alertmanagerSpec:
+    storage:
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 2Gi
+  config:
+    global:
+      smtp_smarthost: "${smtp_smarthost}"
+      smtp_from: "${smtp_from}"
+      smtp_auth_username: "${smtp_auth_username}"
+      smtp_auth_password: "${smtp_auth_password}"
+      smtp_require_tls: true
+    route:
+      group_by: ["alertname", "job"]
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 4h
+      receiver: email-notifications
+      routes:
+        # Watchdog is a synthetic heartbeat alert — route to null to suppress email noise
+        - receiver: "null"
+          matchers:
+            - alertname = "Watchdog"
+        # Loki ruler fires this when exceptions appear in prod logs — repeat every 30m
+        # group_by alertname only: batches all per-(pod,exception_type) alerts into one email
+        - receiver: loki-exception-alerts
+          group_by: ["alertname"]
+          group_wait: 0s
+          group_interval: 5m
+          repeat_interval: 30m
+          matchers:
+            - alertname = "ApplicationExceptions"
+    receivers:
+      - name: "null"
+      - name: email-notifications
+        email_configs:
+          - to: "${alert_email_to}"
+            send_resolved: true
+      # Loki exception alerts — no resolved notification (count-based, no natural resolution)
+      - name: loki-exception-alerts
+        email_configs:
+          - to: "${alert_email_to}"
+            send_resolved: false
+            html: '{{ template "loki.exception.email.html" . }}'
+            headers:
+              subject: '{{ template "loki.exception.email.subject" . }}'
+
+  # Custom email template for Loki exception alerts — content loaded from loki-exceptions.tmpl
+  templateFiles:
+    loki-exceptions.tmpl: |-
+      ${indent(6, trimspace(loki_exceptions_template))}
+
+# --- Grafana: deploy=false, we use the existing grafana-loki Grafana instance ---
+grafana:
+  enabled: false
+
+# --- Node exporter and kube-state-metrics: enable for full cluster visibility ---
+nodeExporter:
+  enabled: true
+
+kubeStateMetrics:
+  enabled: true
+
+# --- Disable components not needed (reduces resource usage on single-node dev) ---
+kubeApiServer:
+  enabled: false
+
+kubeControllerManager:
+  enabled: false
+
+kubeScheduler:
+  enabled: false
+
+kubeProxy:
+  enabled: false
+
+kubeEtcd:
+  enabled: false

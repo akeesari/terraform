@@ -1,0 +1,57 @@
+# =============================================================================
+# Blackbox Exporter Helm Values
+# NOTE: This file uses templatefile() in main.tf so probe_timeout is injected
+#       into both the module's internal timeout and the Probe CRD scrapeTimeout.
+# =============================================================================
+
+replicaCount: 1
+
+# --- Service: ClusterIP (internal only, Prometheus scrapes via Probe CRD) ---
+service:
+  type: ClusterIP
+  port: 9115
+
+# --- HTTP 2xx probe module ---
+config:
+  modules:
+    http_2xx:
+      prober: http
+      timeout: ${probe_timeout}
+      http:
+        valid_http_versions: ["HTTP/1.1", "HTTP/2.0"]
+        valid_status_codes: []   # defaults to 2xx
+        method: GET
+        follow_redirects: true
+        preferred_ip_protocol: "ip4"
+        tls_config:
+          insecure_skip_verify: false
+
+# --- ServiceMonitor: disabled — probing is done via Probe CRD in main.tf ---
+serviceMonitor:
+  enabled: false
+
+# --- DNS: ClusterFirst ensures external hostnames resolve correctly from the cluster ---
+dnsPolicy: ClusterFirst
+hostNetwork: false
+
+# --- Resource limits — lightweight on single-node dev cluster ---
+resources:
+  limits:
+    cpu: 100m
+    memory: 64Mi
+  requests:
+    cpu: 20m
+    memory: 32Mi
+
+# --- Pod security context (pod-level: runAsNonRoot, runAsUser) ---
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+
+# --- Container security context (container-level: filesystem, capabilities) ---
+containerSecurityContext:
+  readOnlyRootFilesystem: true
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL

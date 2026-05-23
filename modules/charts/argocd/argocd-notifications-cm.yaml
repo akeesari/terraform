@@ -1,0 +1,89 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: argocd-notifications-cm
+  namespace: ${namespace}
+data:
+  service.slack: |
+    token: $slack-token
+  service.email: |
+    host: smtp.gmail.com
+    port: 465
+    from: $email-username
+    username: $email-username
+    password: $email-password
+  template.app-deployed: |
+    email:
+      subject: Application {{.app.metadata.name}} has been successfully deployed.
+    message: Application {{.app.metadata.name}} synced successfully at {{.app.status.operationState.finishedAt}}.
+    slack:
+      attachments: |
+        [{
+          "title": "{{ .app.metadata.name}}",
+          "title_link": "{{.context.argocdUrl}}/applications/{{.app.metadata.name}}",
+          "color": "#18be52",
+          "fields": [
+            {"title": "Sync Status", "value": "{{.app.status.sync.status}}", "short": true},
+            {"title": "Repository", "value": "{{.app.spec.source.repoURL}}", "short": true}
+          ]
+        }]
+  template.app-health-degraded: |
+    email:
+      subject: Application {{.app.metadata.name}} has degraded.
+    message: Application {{.app.metadata.name}} health status is Degraded.
+    slack:
+      attachments: |
+        [{
+          "title": "{{ .app.metadata.name}}",
+          "title_link": "{{.context.argocdUrl}}/applications/{{.app.metadata.name}}",
+          "color": "#f4c030",
+          "fields": [
+            {"title": "Health Status", "value": "{{.app.status.health.status}}", "short": true},
+            {"title": "Repository", "value": "{{.app.spec.source.repoURL}}", "short": true}
+          ]
+        }]
+  template.app-sync-failed: |
+    email:
+      subject: Failed to sync application {{.app.metadata.name}}.
+    message: Application {{.app.metadata.name}} sync failed.
+    slack:
+      attachments: |
+        [{
+          "title": "{{ .app.metadata.name}}",
+          "title_link": "{{.context.argocdUrl}}/applications/{{.app.metadata.name}}",
+          "color": "#E96D76",
+          "fields": [
+            {"title": "Sync Status", "value": "{{.app.status.sync.status}}", "short": true},
+            {"title": "Error", "value": "{{.app.status.operationState.message}}", "short": true}
+          ]
+        }]
+  template.app-sync-running: |
+    email:
+      subject: Started syncing application {{.app.metadata.name}}.
+    message: Application {{.app.metadata.name}} sync is in progress.
+    slack:
+      attachments: |
+        [{
+          "title": "{{ .app.metadata.name}}",
+          "title_link": "{{.context.argocdUrl}}/applications/{{.app.metadata.name}}",
+          "color": "#0DADEA",
+          "fields": [
+            {"title": "Sync Status", "value": "{{.app.status.sync.status}}", "short": true}
+          ]
+        }]
+  trigger.on-deployed: |
+    - description: Application synced and healthy.
+      send: [app-deployed]
+      when: app.status.operationState.phase in ['Succeeded'] and app.status.health.status == 'Healthy'
+  trigger.on-health-degraded: |
+    - description: Application health degraded.
+      send: [app-health-degraded]
+      when: app.status.health.status == 'Degraded'
+  trigger.on-sync-failed: |
+    - description: Application sync failed.
+      send: [app-sync-failed]
+      when: app.status.operationState.phase in ['Error', 'Failed']
+  trigger.on-sync-running: |
+    - description: Application sync running.
+      send: [app-sync-running]
+      when: app.status.operationState.phase in ['Running']

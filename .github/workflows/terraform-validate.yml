@@ -1,0 +1,91 @@
+name: Terraform Validate
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  fmt-check:
+    name: Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.5"
+
+      - name: terraform fmt check
+        run: terraform fmt -check -recursive
+
+  validate:
+    name: Validate Modules
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        module:
+          - modules/aad-app
+          - modules/acr
+          - modules/aks
+          - modules/apim
+          - modules/app-gateway
+          - modules/app-service
+          - modules/appinsights
+          - modules/azsql
+          - modules/bastion
+          - modules/bootstrap
+          - modules/budget
+          - modules/container-apps
+          - modules/cosmos-db
+          - modules/dns-record
+          - modules/dns-zone
+          - modules/entra-groups
+          - modules/event-hub
+          - modules/foundry
+          - modules/frontdoor
+          - modules/function-app
+          - modules/grafana
+          - modules/keyvault
+          - modules/management-groups
+          - modules/monitoring
+          - modules/nat-gateway
+          - modules/networking
+          - modules/openai
+          - modules/policy-assignments
+          - modules/postgres
+          - modules/private-endpoint
+          - modules/rbac
+          - modules/redis
+          - modules/resource-group
+          - modules/security
+          - modules/service-bus
+          - modules/storage
+          - modules/vnet
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.5"
+
+      - name: terraform init
+        working-directory: ${{ matrix.module }}
+        run: terraform init -backend=false
+
+      - name: terraform validate
+        working-directory: ${{ matrix.module }}
+        run: terraform validate
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Scan for secrets with Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

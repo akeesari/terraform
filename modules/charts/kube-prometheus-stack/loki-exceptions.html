@@ -1,0 +1,60 @@
+{{ define "loki.exception.email.subject" -}}
+[TradeSignal PROD] ⚠️ {{ .Alerts | len }} Application Exception(s) Detected
+{{- end }}
+
+{{ define "loki.exception.email.html" -}}
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body  { font-family: Arial, sans-serif; font-size: 14px; color: #333; background: #f5f5f5; margin: 0; padding: 0; }
+    .wrap { max-width: 680px; margin: 24px auto; background: #fff; border-radius: 6px;
+            border-left: 5px solid #e53935; box-shadow: 0 2px 6px rgba(0,0,0,.1); }
+    .hdr  { background: #e53935; color: #fff; padding: 18px 24px; border-radius: 2px 2px 0 0; }
+    .hdr h1 { margin: 0; font-size: 20px; }
+    .hdr p  { margin: 4px 0 0; font-size: 13px; opacity: .85; }
+    .body { padding: 24px; }
+    .row  { margin-bottom: 12px; }
+    .lbl  { font-size: 11px; font-weight: bold; text-transform: uppercase;
+            color: #888; letter-spacing: .5px; margin-bottom: 2px; }
+    .val  { font-size: 14px; }
+    .val a { color: #1565c0; text-decoration: none; }
+    .val a:hover { text-decoration: underline; }
+    pre   { background: #fafafa; border: 1px solid #ddd; border-radius: 4px;
+            padding: 12px; font-size: 12px; line-height: 1.5; white-space: pre-wrap;
+            word-break: break-word; color: #c62828; max-height: 280px; overflow: auto; }
+    .ftr  { font-size: 11px; color: #aaa; padding: 12px 24px 18px; border-top: 1px solid #eee; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hdr">
+    <h1>⚠ Application Exceptions Detected</h1>
+    <p>TradeSignal Production &mdash; {{ now | date "Mon Jan 2 15:04:05 MST 2006" }}</p>
+  </div>
+  <div class="body">
+    {{ range .Alerts }}
+    <div class="row">
+      <div class="lbl">Exception count (last 30 min)</div>
+      <div class="val">{{ .Annotations.summary }}</div>
+    </div>
+    <div class="row">
+      <div class="lbl">Details</div>
+      <pre>{{ .Annotations.description }}</pre>
+    </div>
+    <div class="row">
+      <div class="lbl">Severity</div>
+      <div class="val">{{ .Labels.severity | title }}</div>
+    </div>
+    <div class="row">
+      <div class="lbl">Started</div>
+      <div class="val">{{ .StartsAt.Format "Mon Jan 2 15:04:05 UTC 2006" }}</div>
+    </div>
+    {{ end }}
+  </div>
+  <div class="ftr">TradeSignal &bull; Alertmanager &bull; Loki Ruler &bull; AKS Production</div>
+</div>
+</body>
+</html>
+{{- end }}

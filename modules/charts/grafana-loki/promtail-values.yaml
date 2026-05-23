@@ -1,0 +1,28 @@
+# =============================================================================
+# Promtail Helm Values — Log Collector DaemonSet
+# Runs on every node, tails container logs, and ships them to Loki.
+# Uses the chart's built-in kubernetes_sd scrape config (discovers pods
+# automatically and reads from /var/log/pods/ on the host).
+# =============================================================================
+
+config:
+  # Ship logs to Loki in the monitoring namespace
+  clients:
+    - url: http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push
+
+resources:
+  requests:
+    cpu: 25m
+    memory: 64Mi
+  limits:
+    cpu: 100m
+    memory: 128Mi
+
+# Only run on worker nodes — system nodes are at pod capacity (30/30)
+nodeSelector:
+  agentpool: worker01
+
+# Tolerate all taints so Promtail runs on every node
+tolerations:
+  - operator: Exists
+    effect: NoSchedule

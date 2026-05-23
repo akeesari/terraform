@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ${app_name}
+  namespace: ${namespace}
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: ${project_name}
+  source:
+    repoURL: ${repo_url}
+    targetRevision: ${target_revision}
+    path: ${app_path}
+%{ if length(helm_value_files) > 0 ~}
+    helm:
+      valueFiles:
+%{ for file in helm_value_files ~}
+        - ${file}
+%{ endfor ~}
+%{ endif ~}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ${destination_namespace}
+  syncPolicy:
+    automated:
+      selfHeal: true
+      prune: true
+    syncOptions:
+      - CreateNamespace=true
